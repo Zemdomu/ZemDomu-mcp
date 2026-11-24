@@ -1,19 +1,26 @@
-name: Publish to the MCP Registry
+name: Publish MCP release channels
 
 on:
   workflow_dispatch:
+  release:
+    types: [published]
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
-  group: publish-mcp-registry
+  group: publish-mcp-channels
   cancel-in-progress: false
 
 jobs:
   publish:
-    if: github.ref == 'refs/heads/main' && github.repository == 'Zemdomu/ZemDomu-mcp'
+    if: >
+      github.repository == 'Zemdomu/ZemDomu-mcp' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'release' && !github.event.release.prerelease))
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -21,11 +28,17 @@ jobs:
         with:
           persist-credentials: false
       - name: Check the npm release
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         shell: bash
         run: |
           set -euo pipefail
-          package=$(node -p "require('./package.json').name + '@' + require('./package.json').version")
-          test "$(npm view "$package" mcpName)" = "$(node -p "require('./server.json').name")"
+          version=$(node -p "require('./package.json').version")
+          package=$(node -p "require('./package.json').name")
+          test -z "$RELEASE_TAG" || test "$RELEASE_TAG" = "v$version"
+          test "$(node -p "require('./server.json').version")" = "$version"
+          test "$(node -p "require('./server.json').packages[0].version")" = "$version"
+          test "$(npm view "$package@$version" mcpName)" = "$(node -p "require('./server.json').name")"
       - name: Install the verified MCP publisher
         env:
           MCP_PUBLISHER_VERSION: v1.8.16
@@ -52,3 +65,48 @@ jobs:
           esac
           "$RUNNER_TEMP/mcp-publisher" login github-oidc
           "$RUNNER_TEMP/mcp-publisher" publish
+
+  desktop:
+    if: >
+      github.repository == 'Zemdomu/ZemDomu-mcp' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'release' && !github.event.release.prerelease))
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Build and smoke-test the Claude Desktop bundle
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          test -z "$RELEASE_TAG" || test "$RELEASE_TAG" = "v$version"
+          npm ci
+          npm run build
+          archive="$RUNNER_TEMP/zemdomu-$version.mcpb"
+          npm run desktop:build -- "$archive"
+          unzip -q "$archive" -d "$RUNNER_TEMP/zemdomu-extension"
+          ZEMDOMU_MCP_TEST_CLI="$RUNNER_TEMP/zemdomu-extension/node_modules/zemdomu-mcp/out/src/cli.js" \
+            node --test out/tests/stdio.test.js
+      - name: Attach the tested bundle to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          asset="zemdomu-$version.mcpb"
+          existing=$(gh release view "v$version" --json assets,isDraft | jq --arg asset "$asset" 'if .isDraft then error("Release is still a draft") else any(.assets[]; .name == $asset and .size > 0) end')
+          if [ "$existing" = false ]; then
+            gh release upload "v$version" "$RUNNER_TEMP/$asset"
+          fi

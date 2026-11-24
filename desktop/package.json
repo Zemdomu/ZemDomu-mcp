@@ -1,9 +1,0 @@
-{
-  "name": "zemdomu-claude-desktop",
-  "version": "0.1.1",
-  "private": true,
-  "license": "MIT",
-  "dependencies": {
-    "zemdomu-mcp": "0.1.1"
-  }
-}

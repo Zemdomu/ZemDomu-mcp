@@ -18,7 +18,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node out/src/cli.js",
     "prepack": "npm run build",
-    "test": "npm run build && node --test out/tests/*.test.js"
+    "test": "npm run build && node --test out/tests/*.test.js",
+    "desktop:build": "node desktop/build.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.3.1",

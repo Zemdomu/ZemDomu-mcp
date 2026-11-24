@@ -2,7 +2,6 @@
   "manifest_version": "0.3",
   "name": "zemdomu",
   "display_name": "ZemDomu",
-  "version": "0.1.1",
   "description": "Inspect page structure and find semantic accessibility issues in your project.",
   "long_description": "Use ZemDomu to inspect headings, landmarks, and component relationships or get accessibility diagnostics with source locations. It analyzes HTML, JSX, TSX, JavaScript, TypeScript, and Vue page entries in the project folder you select. Analysis runs locally and leaves your project files unchanged.",
   "author": {

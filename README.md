@@ -25,7 +25,7 @@ path to your project. If the file already exists, add `zemdomu` to its
       "args": [
         "--yes",
         "--package",
-        "zemdomu-mcp@0.1.1",
+        "zemdomu-mcp@latest",
         "zemdomu-mcp",
         "--root",
         "/absolute/path/to/your/project"
@@ -44,7 +44,8 @@ For Codex, Claude Code, and Cursor, see the
 
 ## Claude Desktop
 
-Open the `.mcpb` bundle with Claude Desktop, review the extension details,
+Download the `.mcpb` bundle from the [installation guide](https://zemdomu.dev/docs/installation/mcp).
+Open it with Claude Desktop, review the extension details,
 and choose the **Project folder** you want to analyze. The bundle includes
 the server and its dependencies. It uses Claude Desktop's Node.js runtime
 and needs version 22.17 or later.
@@ -53,12 +54,11 @@ If Claude can't see the tools, check that ZemDomu is enabled under **Settings
 → Desktop app → Extensions** and that **Project folder** points to the folder
 containing your source files. Pass entry paths relative to that folder.
 
-To build the bundle from this repository, run these commands from the
+To build the bundle from this repository, run this command from the
 repository root with Node.js 22.17 or later.
 
 ```bash
-npm ci --prefix desktop --omit=dev --ignore-scripts --no-bin-links
-npm exec --yes --package=@anthropic-ai/mcpb@2.1.2 -- mcpb pack desktop zemdomu-0.1.1.mcpb
+npm run desktop:build
 ```
 
 ## Analyze a page
