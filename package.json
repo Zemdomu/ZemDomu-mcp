@@ -1,6 +1,6 @@
 {
   "name": "zemdomu-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "type": "module",
   "description": "Read-only semantic HTML and accessibility analysis for MCP clients.",
@@ -30,7 +30,7 @@
     "@modelcontextprotocol/client": "2.3.1",
     "@types/node": "24.9.1"
   },
-  "mcpName": "io.github.zemdomu/zemdomu",
+  "mcpName": "io.github.Zemdomu/zemdomu",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Zemdomu/ZemDomu-mcp.git"

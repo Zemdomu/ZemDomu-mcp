@@ -1,5 +1,11 @@
 ## Unreleased
 
+## 0.1.1
+
+### Bugfix
+
+- Bugfix: match the GitHub organization name for official MCP Registry verification.
+
 ## 0.1.0
 
 ### Feature

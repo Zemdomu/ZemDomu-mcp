@@ -25,7 +25,7 @@ path to your project. If the file already exists, add `zemdomu` to its
       "args": [
         "--yes",
         "--package",
-        "zemdomu-mcp@0.1.0",
+        "zemdomu-mcp@0.1.1",
         "zemdomu-mcp",
         "--root",
         "/absolute/path/to/your/project"
