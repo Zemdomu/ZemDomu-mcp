@@ -1,5 +1,5 @@
 {
-  "name": "@zemdomu/mcp",
+  "name": "zemdomu-mcp",
   "version": "0.1.0",
   "license": "MIT",
   "type": "module",
@@ -38,5 +38,11 @@
   "homepage": "https://zemdomu.dev/docs/installation/mcp",
   "bugs": {
     "url": "https://github.com/Zemdomu/ZemDomu-mcp/issues"
-  }
+  },
+  "keywords": [
+    "zemdomu",
+    "mcp",
+    "accessibility",
+    "semantic-html"
+  ]
 }

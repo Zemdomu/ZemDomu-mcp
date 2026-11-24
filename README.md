@@ -2,7 +2,7 @@
 
 > Semantic accessibility checks for GitHub Copilot in VS Code and other MCP clients.
 
-ZemDomu MCP uses [ZemDomu Core](https://github.com/Zemdomu/ZemDomu-core) to
+ZemDomu MCP uses [ZemDomu Core (`zemdomu` on npm)](https://www.npmjs.com/package/zemdomu) to
 inspect page structure and report accessibility diagnostics with source
 locations. It analyzes HTML, JSX, TSX, JavaScript, TypeScript, and Vue page
 entries and follows supported React and Vue component imports.
@@ -25,7 +25,7 @@ path to your project. If the file already exists, add `zemdomu` to its
       "args": [
         "--yes",
         "--package",
-        "@zemdomu/mcp@0.1.0",
+        "zemdomu-mcp@0.1.0",
         "zemdomu-mcp",
         "--root",
         "/absolute/path/to/your/project"
