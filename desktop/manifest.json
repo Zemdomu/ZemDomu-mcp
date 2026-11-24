@@ -1,0 +1,60 @@
+{
+  "manifest_version": "0.3",
+  "name": "zemdomu",
+  "display_name": "ZemDomu",
+  "version": "0.1.1",
+  "description": "Inspect page structure and find semantic accessibility issues in your project.",
+  "long_description": "Use ZemDomu to inspect headings, landmarks, and component relationships or get accessibility diagnostics with source locations. It analyzes HTML, JSX, TSX, JavaScript, TypeScript, and Vue page entries in the project folder you select. Analysis runs locally and leaves your project files unchanged.",
+  "author": {
+    "name": "Zacharias Eryd Berlin",
+    "email": "hello@zemdomu.dev",
+    "url": "https://github.com/Zelcus"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Zemdomu/ZemDomu-mcp"
+  },
+  "homepage": "https://zemdomu.dev",
+  "documentation": "https://github.com/Zemdomu/ZemDomu-mcp#claude-desktop",
+  "support": "https://github.com/Zemdomu/ZemDomu-mcp/issues",
+  "icon": "icon.png",
+  "license": "MIT",
+  "privacy_policies": [
+    "https://zemdomu.dev/privacy#claude-desktop",
+    "https://www.anthropic.com/legal/privacy"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "node_modules/zemdomu-mcp/out/src/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/node_modules/zemdomu-mcp/out/src/cli.js",
+        "--root",
+        "${user_config.project_folder}"
+      ]
+    }
+  },
+  "tools": [
+    {
+      "name": "get_page_semantics",
+      "description": "Inspect headings, landmarks, and component relationships for a workspace-relative page entry."
+    },
+    {
+      "name": "find_semantic_issues",
+      "description": "Find semantic accessibility diagnostics with source locations for a workspace-relative page entry."
+    }
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32"],
+    "runtimes": { "node": ">=22.17.0" }
+  },
+  "user_config": {
+    "project_folder": {
+      "type": "directory",
+      "title": "Project folder",
+      "description": "Choose the folder containing the page source files you want ZemDomu to analyze.",
+      "required": true
+    }
+  }
+}

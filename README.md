@@ -39,8 +39,27 @@ path to your project. If the file already exists, add `zemdomu` to its
 Find ZemDomu under **MCP Servers** in `Chat: Open Customizations`. Review
 the command before trusting the server.
 
-For archive installation and Codex registration, see the
-[Codex setup guide](https://zemdomu.dev/docs/installation/mcp).
+For Codex, Claude Code, and Cursor, see the
+[coding assistant setup guide](https://zemdomu.dev/docs/installation/mcp).
+
+## Claude Desktop
+
+Open the `.mcpb` bundle with Claude Desktop, review the extension details,
+and choose the **Project folder** you want to analyze. The bundle includes
+the server and its dependencies. It uses Claude Desktop's Node.js runtime
+and needs version 22.17 or later.
+
+If Claude can't see the tools, check that ZemDomu is enabled under **Settings
+→ Desktop app → Extensions** and that **Project folder** points to the folder
+containing your source files. Pass entry paths relative to that folder.
+
+To build the bundle from this repository, run these commands from the
+repository root with Node.js 22.17 or later.
+
+```bash
+npm ci --prefix desktop --omit=dev --ignore-scripts --no-bin-links
+npm exec --yes --package=@anthropic-ai/mcpb@2.1.2 -- mcpb pack desktop zemdomu-0.1.1.mcpb
+```
 
 ## Analyze a page
 
@@ -57,11 +76,21 @@ export default function Products() {
 }
 ```
 
-Ask Copilot to run both checks.
+Try one of these requests in your assistant. You can use the sample without
+an account for ZemDomu or a separate ZemDomu API key.
 
 ```text
 Use ZemDomu to inspect the page structure and find accessibility issues
 for route /products using Products.tsx as the entry file.
+```
+
+```text
+Use ZemDomu to list the headings and landmarks for /products from Products.tsx.
+```
+
+```text
+Run ZemDomu's accessibility diagnostics on Products.tsx for /products.
+Give me each finding's rule code and source location.
 ```
 
 The page structure includes the main landmark and an `h1` heading.
@@ -86,7 +115,11 @@ The server reads the selected entry and supported local dependencies under the
 folder passed to `--root`. Analysis runs locally in a temporary copy so your
 workspace stays unchanged. The server returns source-derived findings to your
 MCP client, which can include them in requests to its model provider. See the
-[ZemDomu for Codex privacy policy](https://zemdomu.dev/privacy/codex).
+[Claude Desktop extension privacy notice](https://zemdomu.dev/privacy#claude-desktop)
+or the [ZemDomu for Codex privacy policy](https://zemdomu.dev/privacy/codex).
+
+For support, [open a GitHub issue](https://github.com/Zemdomu/ZemDomu-mcp/issues).
+Report security concerns privately to [hello@zemdomu.dev](mailto:hello@zemdomu.dev).
 
 ## License
 

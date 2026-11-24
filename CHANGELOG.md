@@ -1,5 +1,9 @@
 ## Unreleased
 
+### Feature
+
+- Feature: install ZemDomu as a Claude Desktop extension and choose which project folder to analyze.
+
 ## 0.1.1
 
 ### Bugfix
