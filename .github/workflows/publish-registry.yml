@@ -1,0 +1,54 @@
+name: Publish to the MCP Registry
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-mcp-registry
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main' && github.repository == 'Zemdomu/ZemDomu-mcp'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check the npm release
+        shell: bash
+        run: |
+          set -euo pipefail
+          package=$(node -p "require('./package.json').name + '@' + require('./package.json').version")
+          test "$(npm view "$package" mcpName)" = "$(node -p "require('./server.json').name")"
+      - name: Install the verified MCP publisher
+        env:
+          MCP_PUBLISHER_VERSION: v1.8.16
+          MCP_PUBLISHER_SHA256: 6e2f799550cf843c6fd3350498d56cc49be3dc0af1e6237eb0e6435c7a9d5c05
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/mcp-publisher_linux_amd64.tar.gz"
+          curl --fail --location --silent --show-error --output "$archive" \
+            "https://github.com/modelcontextprotocol/registry/releases/download/$MCP_PUBLISHER_VERSION/mcp-publisher_linux_amd64.tar.gz"
+          printf '%s  %s\n' "$MCP_PUBLISHER_SHA256" "$archive" | sha256sum --check
+          tar -xzf "$archive" -C "$RUNNER_TEMP" mcp-publisher
+      - name: Publish the npm server metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          name=$(node -p "encodeURIComponent(require('./server.json').name)")
+          version=$(node -p "require('./server.json').version")
+          status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            "https://registry.modelcontextprotocol.io/v0.1/servers/$name/versions/$version")
+          case "$status" in
+            200) echo "Registry version already exists."; exit 0 ;;
+            404) ;;
+            *) echo "Registry status check returned HTTP $status."; exit 1 ;;
+          esac
+          "$RUNNER_TEMP/mcp-publisher" login github-oidc
+          "$RUNNER_TEMP/mcp-publisher" publish

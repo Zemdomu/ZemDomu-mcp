@@ -1,0 +1,35 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.zemdomu/zemdomu",
+  "title": "ZemDomu",
+  "description": "Inspect page structure and get read-only semantic accessibility diagnostics from source files.",
+  "repository": {
+    "url": "https://github.com/Zemdomu/ZemDomu-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://zemdomu.dev/docs/installation/mcp",
+  "icons": [
+    {
+      "src": "https://zemdomu.dev/icon.png",
+      "mimeType": "image/png"
+    }
+  ],
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@zemdomu/mcp",
+      "version": "0.1.0",
+      "transport": { "type": "stdio" },
+      "packageArguments": [
+        {
+          "type": "named",
+          "name": "--root",
+          "description": "Absolute path to the workspace folder ZemDomu may analyze.",
+          "isRequired": true,
+          "format": "filepath"
+        }
+      ]
+    }
+  ]
+}
