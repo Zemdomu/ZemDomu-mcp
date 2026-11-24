@@ -1,17 +1,24 @@
 import * as z from "zod/v4";
 
 export const ADAPTER_SCHEMA_VERSION = "zd-mcp-poc/1" as const;
+export const MAX_SOURCE_EXCERPTS = 12;
+export const MAX_SOURCE_EXCERPT_LENGTH = 240;
+
+const maxSourceExcerptsSchema = z.number().int().min(0).max(MAX_SOURCE_EXCERPTS).optional()
+  .describe("Include up to this many short, line-numbered source excerpts. Defaults to 0.");
 
 export const pageInputSchema = z.object({
   route: z.string().min(1).max(256).startsWith("/"),
   entryFile: z.string().min(1).max(1024),
   maxItems: z.number().int().min(1).max(200).optional(),
+  maxSourceExcerpts: maxSourceExcerptsSchema,
 }).strict();
 
 export const issuesInputSchema = z.object({
   route: z.string().min(1).max(256).startsWith("/"),
   entryFile: z.string().min(1).max(1024),
   maxDiagnostics: z.number().int().min(1).max(200).optional(),
+  maxSourceExcerpts: maxSourceExcerptsSchema,
 }).strict();
 
 const sourceLocationSchema = z.object({
@@ -62,12 +69,25 @@ const versionsSchema = z.object({
   diagnostic: z.literal("1.0"),
 }).strict();
 
+const sourceExcerptsSchema = z.object({
+  items: z.array(z.object({
+    file: z.string(),
+    startLine: z.number().int().positive(),
+    startColumn: z.number().int().positive(),
+    text: z.string().min(1).max(MAX_SOURCE_EXCERPT_LENGTH),
+    itemIndexes: z.array(z.number().int().nonnegative()).min(1)
+      .describe("Zero-based indexes in the result's facts or diagnostics array."),
+  }).strict()).max(MAX_SOURCE_EXCERPTS),
+  truncated: z.boolean(),
+}).strict();
+
 const baseResultSchema = z.object({
   versions: versionsSchema,
   workspace: workspaceSchema,
   route: z.string(),
   complete: z.boolean(),
   incompleteReasons: z.array(z.string()),
+  sourceExcerpts: sourceExcerptsSchema.optional(),
 }).strict();
 
 export const pageSemanticsOutputSchema = baseResultSchema.extend({
@@ -109,6 +129,7 @@ export const semanticIssuesOutputSchema = baseResultSchema.extend({
 
 export type PageInput = z.infer<typeof pageInputSchema>;
 export type IssuesInput = z.infer<typeof issuesInputSchema>;
+export type SourceExcerpts = z.infer<typeof sourceExcerptsSchema>;
 export type PageSemanticsResult = z.infer<typeof pageSemanticsOutputSchema>;
 export type SemanticIssuesResult = z.infer<typeof semanticIssuesOutputSchema>;
 export type ToolName = "get_page_semantics" | "find_semantic_issues";

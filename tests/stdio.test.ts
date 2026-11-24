@@ -78,6 +78,18 @@ for (const protocol of ["2026-07-28", "2025-11-25"] as const) {
     assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "ZMD004"));
     assert.deepEqual(issues.content, [{ type: "text", text: JSON.stringify(result) }]);
 
+    for (const name of READONLY_TOOL_NAMES) {
+      const response = await client.callTool({
+        name,
+        arguments: { route: "/", entryFile: "Page.tsx", maxSourceExcerpts: 2 },
+      });
+      assert.equal(response.isError, undefined);
+      const schema = name === "get_page_semantics" ? pageSemanticsOutputSchema : semanticIssuesOutputSchema;
+      const withExcerpts = schema.parse(response.structuredContent);
+      assert.ok(withExcerpts.sourceExcerpts?.items.some((item) => item.file === "Page.tsx" && item.startLine === 1));
+      assert.deepEqual(response.content, [{ type: "text", text: JSON.stringify(withExcerpts) }]);
+    }
+
     const invalid = await client.callTool({
       name: "find_semantic_issues",
       arguments: { route: "/", entryFile: "../Page.tsx" },

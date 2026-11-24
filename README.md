@@ -109,12 +109,36 @@ workspace. Each limit accepts 1 to 200 and defaults to 50. Check
 rely on the result. Use rendered browser, keyboard, and assistive-technology
 testing to check the experience in the running app.
 
+### Request short source excerpts
+
+Set `maxSourceExcerpts` on either tool to include code around the reported
+facts or findings. It accepts 0 to 12 and defaults to 0. Start with a few
+excerpts when asking an assistant to review or fix a page.
+
+```json
+{
+  "route": "/products",
+  "entryFile": "src/pages/Products.tsx",
+  "maxDiagnostics": 10,
+  "maxSourceExcerpts": 4
+}
+```
+
+`sourceExcerpts.items` contains up to three lines and 240 characters per
+excerpt. Each excerpt has a workspace-relative file, one-based `startLine`
+and `startColumn`, and zero-based `itemIndexes` into the returned `facts` or
+`diagnostics` array. Diagnostics can also include excerpts for related and
+preferred edit locations. Shared excerpts appear once. The response budget
+trims excerpts before findings and marks `sourceExcerpts.truncated` when it
+can fit that field.
+
 ## Workspace and data
 
 The server reads the selected entry and supported local dependencies under the
 folder passed to `--root`. Analysis runs locally in a temporary copy so your
-workspace stays unchanged. The server returns source-derived findings to your
-MCP client, which can include them in requests to its model provider. See the
+workspace stays unchanged. The server returns findings and any requested
+source excerpts to your MCP client, which can include them in requests to its
+model provider. See the
 [Claude Desktop extension privacy notice](https://zemdomu.dev/privacy#claude-desktop)
 or the [ZemDomu for Codex privacy policy](https://zemdomu.dev/privacy/codex).
 

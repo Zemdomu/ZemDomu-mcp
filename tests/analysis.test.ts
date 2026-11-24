@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withBudgets } from "../src/config.js";
 import {
+  MAX_SOURCE_EXCERPT_LENGTH,
   pageSemanticsOutputSchema,
   semanticIssuesOutputSchema,
 } from "../src/contracts.js";
@@ -54,6 +55,7 @@ test("returns schema-valid bounded semantics without source bodies or absolute p
   assert.equal(result.versions.adapter, "zd-mcp-poc/1");
   assert.ok(result.files.every((file) => !path.isAbsolute(file)));
   assert.ok(!JSON.stringify(result).includes("export default function"));
+  assert.equal(result.sourceExcerpts, undefined);
   assert.equal(run.metrics.outputBytes, Buffer.byteLength(JSON.stringify(result)));
   assert.equal(run.metrics.estimatedTokens, Math.ceil(run.metrics.outputBytes / 4));
 });
@@ -70,6 +72,79 @@ test("returns canonical diagnostics with workspace-relative sources", async (t) 
   const result = semanticIssuesOutputSchema.parse(run.result);
   assert.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "ZMD004"));
   assert.ok(result.diagnostics.every((diagnostic) => !path.isAbsolute(diagnostic.source.file)));
+  assert.equal(result.sourceExcerpts, undefined);
+});
+
+test("maps page excerpts to retained facts and shares a location across facts", async (t) => {
+  const { parent, root } = fixture();
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  write(root, "src/Page.tsx", [
+    "export default function Page() {", "  return <main>",
+    '    <h1 id="products">Products</h1>', "  </main>;", "}",
+  ].join("\r\n"));
+  const analysis = runner(root);
+  const signal = new AbortController().signal;
+  const input = { route: "/products", entryFile: "src/Page.tsx", maxSourceExcerpts: 2 };
+  const page = pageSemanticsOutputSchema.parse((await analysis.run("get_page_semantics", input, signal)).result);
+  const heading = page.sourceExcerpts?.items.find((item) => item.startLine === 3);
+  assert.ok(heading);
+  assert.equal(heading.file, "src/Page.tsx");
+  assert.equal(heading.startColumn, 1);
+  assert.match(heading.text, /^    <h1 id="products">Products<\/h1>\n/);
+  assert.deepEqual(heading.itemIndexes.map((index) => page.facts[index]?.kind), ["heading", "document-id"]);
+
+  const limited = pageSemanticsOutputSchema.parse((await analysis.run(
+    "get_page_semantics", { ...input, maxSourceExcerpts: 1 }, signal
+  )).result);
+  assert.equal(limited.sourceExcerpts?.items.length, 1);
+  assert.equal(limited.sourceExcerpts?.truncated, true);
+
+  const disabled = pageSemanticsOutputSchema.parse((await analysis.run(
+    "get_page_semantics", { ...input, maxSourceExcerpts: 0 }, signal
+  )).result);
+  assert.equal(disabled.sourceExcerpts, undefined);
+});
+
+test("clips diagnostic excerpts around the source column in a captured dependency", async (t) => {
+  const { parent, root } = fixture();
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  const imageLine = `    {/* ${"😀".repeat(140)} */}<img src="product.png" />`;
+  write(root, "src/Child.tsx", [
+    "export default function Child() {", "  return <section>", imageLine,
+    "  </section>;", "}", "// outside the excerpt",
+  ].join("\n"));
+  const version = await runner(root).run(
+    "find_semantic_issues", { route: "/products", entryFile: "src/Page.tsx", maxSourceExcerpts: 12 },
+    new AbortController().signal
+  );
+  const result = semanticIssuesOutputSchema.parse(version.result);
+  const image = result.diagnostics.findIndex((item) => item.code === "ZMD004");
+  assert.ok(image >= 0);
+  const excerpt = result.sourceExcerpts?.items.find((item) => item.itemIndexes.includes(image));
+  assert.ok(excerpt);
+  assert.equal(excerpt.file, "src/Child.tsx");
+  assert.equal(excerpt.startLine, 3);
+  assert.ok(excerpt.startColumn > 1);
+  assert.match(excerpt.text, /<img src="product.png" \/>/);
+  assert.ok(excerpt.text.startsWith(imageLine.slice(excerpt.startColumn - 1)));
+  assert.ok(excerpt.text.length <= MAX_SOURCE_EXCERPT_LENGTH);
+  assert.ok(!excerpt.text.includes("outside the excerpt"));
+});
+
+test("drops excerpts before diagnostics when the output budget is tight", async (t) => {
+  const { parent, root } = fixture();
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  const input = { route: "/products", entryFile: "src/Page.tsx" };
+  const signal = new AbortController().signal;
+  const ordinary = semanticIssuesOutputSchema.parse((await runner(root).run("find_semantic_issues", input, signal)).result);
+  const maxOutputBytes = Buffer.byteLength(JSON.stringify(ordinary)) + 60;
+  const extra = await runner(root, { maxOutputBytes }).run(
+    "find_semantic_issues", { ...input, maxSourceExcerpts: 12 }, signal
+  );
+  const { sourceExcerpts, ...result } = semanticIssuesOutputSchema.parse(extra.result);
+  assert.deepEqual(result, ordinary);
+  assert.deepEqual(sourceExcerpts, { items: [], truncated: true });
+  assert.ok(extra.metrics.outputBytes <= maxOutputBytes);
 });
 
 test("analyzes an HTML entry without following its script sources", async (t) => {

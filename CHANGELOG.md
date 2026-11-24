@@ -1,7 +1,10 @@
 ## Unreleased
 
+## 0.2.0
+
 ### Feature
 
+- Feature: request short, line-numbered source excerpts alongside page facts and semantic accessibility findings.
 - Feature: install ZemDomu as a Claude Desktop extension and choose which project folder to analyze.
 
 ## 0.1.1

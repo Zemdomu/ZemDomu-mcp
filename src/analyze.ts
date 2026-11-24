@@ -16,6 +16,7 @@ import {
   type ToolResult,
 } from "./contracts.js";
 import { createWorkspaceSnapshot, type WorkspaceSnapshot } from "./snapshot.js";
+import { collectSourceExcerpts, type ExcerptLocation } from "./source-excerpts.js";
 
 interface AnalysisOptions {
   rootDirectory: string;
@@ -123,6 +124,14 @@ async function getPageSemantics(
     truncated,
   };
   fitPageOutput(result, budgets.maxOutputBytes);
+  if (input.maxSourceExcerpts) {
+    const locations = page.facts.slice(0, result.facts.length).flatMap(({ provenance }, itemIndex) => {
+      const file = provenance.fileId && filePaths.get(provenance.fileId);
+      const start = provenance.range?.start;
+      return file && start ? [{ file, line: start.line, column: start.column, itemIndex }] : [];
+    });
+    addSourceExcerpts(result, snapshot, locations, input.maxSourceExcerpts, budgets.maxOutputBytes);
+  }
   result.complete = result.incompleteReasons.length === 0;
   return pageSemanticsOutputSchema.parse(result);
 }
@@ -159,6 +168,14 @@ async function findSemanticIssues(
     },
   };
   fitIssuesOutput(result, budgets.maxOutputBytes);
+  if (input.maxSourceExcerpts) {
+    const locations = result.diagnostics.map(({ source }, itemIndex) => ({ ...source, itemIndex }));
+    const editsAndRelated = result.diagnostics.flatMap((diagnostic, itemIndex) => [
+      ...(diagnostic.preferredEditLocation ? [{ ...diagnostic.preferredEditLocation, itemIndex }] : []),
+      ...(diagnostic.relatedLocations ?? []).map(({ source }) => ({ ...source, itemIndex })),
+    ]);
+    addSourceExcerpts(result, snapshot, [...locations, ...editsAndRelated], input.maxSourceExcerpts, budgets.maxOutputBytes);
+  }
   result.complete = result.incompleteReasons.length === 0;
   return semanticIssuesOutputSchema.parse(result);
 }
@@ -285,6 +302,22 @@ function fitIssuesOutput(result: SemanticIssuesResult, maxBytes: number): void {
   if (jsonBytes(result) > maxBytes) {
     throw new Error("Output metadata exceeds the configured byte budget.");
   }
+}
+
+function addSourceExcerpts(
+  result: ToolResult,
+  snapshot: WorkspaceSnapshot,
+  locations: ExcerptLocation[],
+  limit: number,
+  maxBytes: number
+): void {
+  const excerpts = collectSourceExcerpts(snapshot, locations, limit);
+  result.sourceExcerpts = excerpts;
+  while (excerpts.items.length > 0 && jsonBytes(result) > maxBytes) {
+    excerpts.items.pop();
+    excerpts.truncated = true;
+  }
+  if (jsonBytes(result) > maxBytes) delete result.sourceExcerpts;
 }
 
 function addIncomplete(result: ToolResult, reason: string): void {

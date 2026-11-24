@@ -14,12 +14,12 @@
       "mimeType": "image/png"
     }
   ],
-  "version": "0.1.1",
+  "version": "0.2.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "zemdomu-mcp",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "transport": { "type": "stdio" },
       "packageArguments": [
         {

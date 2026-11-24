@@ -29,7 +29,7 @@ export function createZemDomuMcpServer(configuration: ServerConfiguration): McpS
     {
       title: "Get page semantics",
       description:
-        "Return bounded, source-backed component and semantic facts for one explicit workspace-relative page entry.",
+        "Return bounded component and semantic facts for one workspace-relative page entry. Set maxSourceExcerpts to get short code excerpts for the facts.",
       inputSchema: pageInputSchema,
       outputSchema: pageSemanticsOutputSchema,
       annotations,
@@ -56,7 +56,7 @@ export function createZemDomuMcpServer(configuration: ServerConfiguration): McpS
     {
       title: "Find semantic issues",
       description:
-        "Return bounded canonical ZemDomu diagnostics for one explicit workspace-relative page entry.",
+        "Return bounded ZemDomu diagnostics for one workspace-relative page entry. Set maxSourceExcerpts to get short code excerpts for findings and related edit locations.",
       inputSchema: issuesInputSchema,
       outputSchema: semanticIssuesOutputSchema,
       annotations,
