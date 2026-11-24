@@ -2,6 +2,9 @@ name: Publish MCP release channels
 
 on:
   workflow_dispatch:
+  push:
+    branches: ['release-candidate/v*']
+    tags: ['v*']
   release:
     types: [published]
 
@@ -13,10 +16,57 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  stage:
+    if: >
+      github.repository == 'Zemdomu/ZemDomu-mcp' &&
+      startsWith(github.ref, 'refs/heads/release-candidate/') &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.22.1
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Submit the audited tarball for npm approval
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          test "$GITHUB_REF" = "refs/heads/release-candidate/v$version"
+          expected=$(git log -1 --format='%(trailers:key=Npm-Integrity,valueonly)')
+          [[ $expected =~ ^sha512-[A-Za-z0-9+/]+=*$ ]]
+          status=$(curl --silent --show-error --max-time 20 --output "$RUNNER_TEMP/npm-version.json" \
+            --write-out '%{http_code}' "https://registry.npmjs.org/zemdomu-mcp/$version")
+          case "$status" in
+            200)
+              test "$(jq -er .dist.integrity "$RUNNER_TEMP/npm-version.json")" = "$expected"
+              echo "The matching npm version is already public."
+              exit 0
+              ;;
+            404) ;;
+            *) echo "npm version lookup returned HTTP $status."; exit 1 ;;
+          esac
+          npm ci
+          npm run build
+          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP"
+          archive="$RUNNER_TEMP/zemdomu-mcp-$version.tgz"
+          actual="sha512-$(openssl dgst -sha512 -binary "$archive" | openssl base64 -A)"
+          test "$actual" = "$expected"
+          npm stage publish "$archive" --access public
+
   publish:
     if: >
       github.repository == 'Zemdomu/ZemDomu-mcp' &&
-      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      ((github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || github.ref_type == 'tag')) ||
+       (github.event_name == 'push' && github.ref_type == 'tag') ||
        (github.event_name == 'release' && !github.event.release.prerelease))
     permissions:
       contents: read
@@ -29,7 +79,7 @@ jobs:
           persist-credentials: false
       - name: Check the npm release
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || github.event.release.tag_name }}
         shell: bash
         run: |
           set -euo pipefail
@@ -39,6 +89,10 @@ jobs:
           test "$(node -p "require('./server.json').version")" = "$version"
           test "$(node -p "require('./server.json').packages[0].version")" = "$version"
           test "$(npm view "$package@$version" mcpName)" = "$(node -p "require('./server.json').name")"
+          expected=$(git log -1 --format='%(trailers:key=Npm-Integrity,valueonly)')
+          if [ -n "$expected" ]; then
+            test "$(npm view "$package@$version" dist.integrity)" = "$expected"
+          fi
       - name: Install the verified MCP publisher
         env:
           MCP_PUBLISHER_VERSION: v1.8.16
@@ -67,9 +121,11 @@ jobs:
           "$RUNNER_TEMP/mcp-publisher" publish
 
   desktop:
+    needs: publish
     if: >
       github.repository == 'Zemdomu/ZemDomu-mcp' &&
-      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      ((github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || github.ref_type == 'tag')) ||
+       (github.event_name == 'push' && github.ref_type == 'tag') ||
        (github.event_name == 'release' && !github.event.release.prerelease))
     permissions:
       contents: write
@@ -85,7 +141,7 @@ jobs:
           package-manager-cache: false
       - name: Build and smoke-test the Claude Desktop bundle
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || github.event.release.tag_name }}
         shell: bash
         run: |
           set -euo pipefail
@@ -98,15 +154,28 @@ jobs:
           unzip -q "$archive" -d "$RUNNER_TEMP/zemdomu-extension"
           ZEMDOMU_MCP_TEST_CLI="$RUNNER_TEMP/zemdomu-extension/node_modules/zemdomu-mcp/out/src/cli.js" \
             node --test out/tests/stdio.test.js
-      - name: Attach the tested bundle to the release
+      - name: Publish the GitHub release and attach the tested bundle
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           version=$(node -p "require('./package.json').version")
+          tag="v$version"
           asset="zemdomu-$version.mcpb"
-          existing=$(gh release view "v$version" --json assets,isDraft | jq --arg asset "$asset" 'if .isDraft then error("Release is still a draft") else any(.assets[]; .name == $asset and .size > 0) end')
-          if [ "$existing" = false ]; then
-            gh release upload "v$version" "$RUNNER_TEMP/$asset"
+          if release=$(gh release view "$tag" --json assets,isDraft); then
+            if ! jq -e --arg asset "$asset" 'any(.assets[]; .name == $asset and .size > 0)' <<<"$release"; then
+              gh release upload "$tag" "$RUNNER_TEMP/$asset"
+            fi
+            if jq -e '.isDraft' <<<"$release"; then
+              test "$GITHUB_REF" = "refs/tags/$tag"
+              gh release edit "$tag" --draft=false --latest
+            fi
+          else
+            test "$GITHUB_REF" = "refs/tags/$tag"
+            test "$(git cat-file -t "refs/tags/$tag")" = tag
+            git for-each-ref --format='%(contents)' "refs/tags/$tag" > "$RUNNER_TEMP/release-notes.md"
+            test -s "$RUNNER_TEMP/release-notes.md"
+            gh release create "$tag" "$RUNNER_TEMP/$asset" --verify-tag --title "$tag" \
+              --notes-file "$RUNNER_TEMP/release-notes.md" --latest
           fi
